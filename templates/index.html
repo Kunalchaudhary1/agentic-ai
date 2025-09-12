@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Agentic AI Web Scraper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f6f8fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 540px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+            padding: 32px 28px 24px 28px;
+        }
+        h2 {
+            color: #2d3748;
+            margin-top: 0;
+        }
+        label {
+            font-weight: 500;
+            color: #444;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 8px 0 16px 0;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border 0.2s;
+        }
+        input[type="text"]:focus {
+            border: 1.5px solid #3182ce;
+            outline: none;
+        }
+        button {
+            background: #3182ce;
+            color: #fff;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: 8px;
+        }
+        button:disabled {
+            background: #b5c6d6;
+            cursor: not-allowed;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.95em;
+            margin-bottom: 10px;
+        }
+        .idle { background: #e2e8f0; color: #444; }
+        .running { background: #f6e05e; color: #7b5e00; }
+        .completed { background: #68d391; color: #22543d; }
+        .error { background: #feb2b2; color: #742a2a; }
+        .current-url {
+            font-size: 0.97em;
+            color: #555;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+        .spinner {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 3px solid #cbd5e1;
+            border-top: 3px solid #3182ce;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        .answer-box {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+            min-height: 40px;
+            font-size: 1.07em;
+            color: #2d3748;
+            white-space: pre-wrap;
+        }
+        .footer {
+            text-align: center;
+            color: #aaa;
+            font-size: 0.95em;
+            margin-top: 32px;
+        }
+        #stop-btn {
+            background: #e53e3e;
+            color: #fff;
+            margin-left: 8px;
+        }
+        #stop-btn:disabled {
+            background: #feb2b2;
+            color: #fff;
+        }
+        .chat-history {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 18px;
+            min-height: 80px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🌐 Agentic AI Web Scraper</h2>
+        <form method="POST" id="scrape-form" autocomplete="off">
+            <label for="url">Website URL:</label><br>
+            <input type="text" name="url" id="url" placeholder="https://example.com" required>
+            <button type="submit" id="scrape-btn">Scrape</button>
+            <button type="button" id="stop-btn" onclick="stopScraping()" disabled>Stop Scraping</button>
+        </form>
+        {% if message %}
+            <div class="status-badge completed">{{ message }}</div>
+        {% endif %}
+        <div id="scrape-status"></div>
+        <hr style="margin: 28px 0 18px 0;">
+        <label for="question">Ask Gemini about the website:</label><br>
+        <input type="text" id="question" placeholder="Type your question..." autocomplete="off">
+        <button onclick="askGemini()" id="ask-btn">Ask</button>
+        <div class="answer-box" id="answer"></div>
+        <div class="chat-history" id="chat-history">
+            <!-- Chat history will be rendered here -->
+        </div>
+    </div>
+    <div class="footer">
+        &copy; {{ 2025 }} Agentic AI | Powered by Gemini & Selenium
+    </div>
+    <script>
+        let scraping = false;
+
+        document.getElementById('scrape-form').onsubmit = function(e) {
+            e.preventDefault();
+            const url = document.getElementById('url').value.trim();
+            if (!url || !url.startsWith('http')) {
+                alert("Please enter a valid URL (starting with http or https).");
+                return false;
+            }
+            document.getElementById('scrape-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+            document.getElementById('answer').innerText = "";
+            this.submit();
+        };
+
+        async function stopScraping() {
+            document.getElementById('stop-btn').disabled = true;
+            await fetch('/stop', {method: 'POST'});
+        }
+
+        function renderHistory(history) {
+            const box = document.getElementById('chat-history');
+            box.innerHTML = "";
+            if (!history || history.length === 0) {
+                box.innerHTML = "<i>No conversation yet.</i>";
+                return;
+            }
+            for (const turn of history) {
+                box.innerHTML += `<div style="margin-bottom:8px;">
+                    <b>You:</b> ${turn.user}<br>
+                    <b>Agent:</b> ${turn.bot}
+                </div>`;
+            }
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function askGemini() {
+            const question = document.getElementById('question').value.trim();
+            if (!question) return;
+            document.getElementById('answer').innerHTML = '<span class="spinner"></span>Thinking...';
+            document.getElementById('ask-btn').disabled = true;
+            const resp = await fetch('/ask', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({question})
+            });
+            const data = await resp.json();
+            document.getElementById('answer').innerText = data.answer;
+            renderHistory(data.history);
+            document.getElementById('ask-btn').disabled = false;
+        }
+
+        async function pollStatus() {
+            const resp = await fetch('/status');
+            const data = await resp.json();
+            let badge = "";
+            let msg = "";
+            if (data.status === "idle") {
+                badge = '<span class="status-badge idle">Idle</span>';
+                msg = "Ready to start scraping.";
+                scraping = false;
+                document.getElementById('scrape-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            } else if (data.status === "running") {
+                badge = '<span class="status-badge running"><span class="spinner"></span>Scraping...</span>';
+                msg = '<div class="current-url">Currently on:<br>' + (data.current || "Loading...") + '</div>';
+                if (data.error) msg += "<div class='status-badge error'>" + data.error + "</div>";
+                scraping = true;
+                document.getElementById('scrape-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+            } else if (data.status === "completed") {
+                badge = '<span class="status-badge completed">Scraping completed!</span>';
+                msg = "";
+                scraping = false;
+                document.getElementById('scrape-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            } else if (data.status === "stopped") {
+                badge = '<span class="status-badge error">Stopped</span>';
+                msg = "";
+                scraping = false;
+                document.getElementById('scrape-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            } else if (data.status === "error") {
+                badge = '<span class="status-badge error">Error</span>';
+                msg = "<div class='status-badge error'>" + data.error + "</div>";
+                scraping = false;
+                document.getElementById('scrape-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            }
+            document.getElementById('scrape-status').innerHTML = badge + " " + msg;
+        }
+        setInterval(pollStatus, 2000);
+        pollStatus();
+
+        // On page load, fetch and render history (optional, if you want to show on reload)
+        window.onload = function() {
+            renderHistory([]);
+        }
+    </script>
+</body>
+</html>
