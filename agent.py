@@ -13,7 +13,7 @@ CONTENT_FILE = "website_content.txt"
 SCRAPE_STATUS = {"status": "idle", "current": "", "error": ""}
 SCRAPE_STOP = {"stop": False}
 
-GENAI_API_KEY = "AIzaSyCVIk_R0b_SRDHRUNpHCCmj45pbEfB8yTk"
+GENAI_API_KEY = "enter your key here "
 genai.configure(api_key=GENAI_API_KEY)
 
 def is_internal_link(link, base_netloc):
