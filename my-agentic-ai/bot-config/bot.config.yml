@@ -1,0 +1,25 @@
+# bot-config/bot.config.yml
+
+database:
+  type: postgres
+  host: localhost
+  port: 5432
+  user: agent_user
+  password: agent_pass
+  name: agentic_ai
+
+embeddings:
+  provider: openai
+  model: text-embedding-3-small
+  dimension: 1536
+
+scraping:
+  base_url: "https://example.com"
+  paths:
+    - "/products"
+    - "/services"
+    - "/about"
+
+storage:
+  vector_store: "pinecone"   # or "weaviate" | "chroma" | "faiss"
+  local_data_dir: "./data"
